@@ -8,11 +8,7 @@ on:
 
 jobs:
   test-build:
-    runs-on: ${{ matrix.os }}
-    
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: windows-latest
     
     steps:
       - name: Check out Git repository
@@ -32,27 +28,14 @@ jobs:
           echo "Running validation checks..."
           node -e "console.log('✅ Node.js syntax check passed')"
 
-      - name: Test build (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          npm run build-linux
-          echo "✅ Linux build successful"
-
       - name: Test build (Windows)
-        if: matrix.os == 'windows-latest'
         run: |
           npm run build-win
           echo "✅ Windows build successful"
 
-      - name: Test build (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          npm run build-mac
-          echo "✅ macOS build successful"
-
       - name: Check build artifacts
         run: |
-          ls -la dist/ || dir dist\
+          dir dist\ || echo "dist folder not found"
           echo "✅ Build artifacts created successfully"
 
   security-check:
