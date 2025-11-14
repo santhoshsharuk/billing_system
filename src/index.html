@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing System</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/billing.css">
+    <link rel="stylesheet" href="styles/crm.css">
+    <link rel="stylesheet" href="styles/categories.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-box">
+                <div class="login-header">
+                    <i class="fas fa-receipt"></i>
+                    <h1>Billing System</h1>
+                    <p>Please login to continue</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Username</label>
+                        <input type="text" id="username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Password</label>
+                        <input type="password" id="password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                    <div id="login-error" class="error-message"></div>
+                </form>
+                <div class="login-footer">
+                    <p>Default: admin / admin123</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app-screen" class="screen">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-receipt"></i>
+                <h2>Billing System</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="billing">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Create Bill</span>
+                </a>
+                <a href="#" class="nav-item" data-page="customers">
+                    <i class="fas fa-users"></i>
+                    <span>Customers</span>
+                </a>
+                <a href="#" class="nav-item" data-page="crm">
+                    <i class="fas fa-user-tag"></i>
+                    <span>CRM & Loyalty</span>
+                </a>
+                <a href="#" class="nav-item" data-page="products">
+                    <i class="fas fa-box"></i>
+                    <span>Products</span>
+                </a>
+                <a href="#" class="nav-item" data-page="categories">
+                    <i class="fas fa-tags"></i>
+                    <span>Categories</span>
+                </a>
+                <a href="#" class="nav-item" data-page="history">
+                    <i class="fas fa-history"></i>
+                    <span>Billing History</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="current-user">Admin</span>
+                </div>
+                <button id="logout-btn" class="btn btn-sm btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="page-header">
+                    <h1><i class="fas fa-chart-line"></i> Dashboard</h1>
+                    <div class="page-actions">
+                        <select id="dashboard-period" class="dashboard-select">
+                            <option value="today">Today</option>
+                            <option value="week" selected>This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                        <button id="refresh-dashboard" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card stat-card-primary">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Today's Sales</p>
+                            <h3 id="today-sales" class="stat-value">₹0</h3>
+                            <span class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> <span id="sales-trend">0%</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-info">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Today's Bills</p>
+                            <h3 id="today-bills" class="stat-value">0</h3>
+                            <span class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> <span id="bills-trend">0%</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-warning">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Total Customers</p>
+                            <h3 id="total-customers" class="stat-value">0</h3>
+                            <span class="stat-badge">Active</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Total Products</p>
+                            <h3 id="total-products" class="stat-value">0</h3>
+                            <span class="stat-badge" id="low-stock-badge">0 Low Stock</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-profit">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-info">
+                            <p class="stat-label">Total Profit</p>
+                            <h3 id="total-profit" class="stat-value">₹0</h3>
+                            <span class="stat-badge">All Time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="dashboard-card chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-area"></i> Sales Overview</h3>
+                            <div class="card-actions">
+                                <button class="btn-icon" onclick="refreshChart()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="sales-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-pie"></i> Payment Methods</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="payment-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-star"></i> Top Products</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="top-products-list" class="top-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card recent-bills-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-receipt"></i> Recent Bills</h3>
+                            <a href="#" class="view-all" onclick="switchPage('reports'); return false;">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <div id="recent-bills-list" class="recent-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Billing Page -->
+            <div id="billing-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-file-invoice-dollar"></i> Create Bill</h1>
+                </div>
+
+                <div class="billing-container-new">
+                    <!-- Left Side - Product Selection -->
+                    <div class="products-selection">
+                        <!-- Customer & Payment Selection -->
+                        <div class="billing-header-section">
+                            <div class="form-group-inline">
+                                <label><i class="fas fa-user"></i> Customer</label>
+                                <div class="input-with-button">
+                                    <select id="bill-customer" required>
+                                        <option value="">Select Customer</option>
+                                    </select>
+                                    <button type="button" id="add-customer-quick" class="btn-icon-sm">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group-inline">
+                                <label><i class="fas fa-credit-card"></i> Payment</label>
+                                <select id="payment-mode" required>
+                                    <option value="cash">Cash</option>
+                                    <option value="upi">UPI</option>
+                                    <option value="card">Card</option>
+                                    <option value="cheque">Cheque</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Category Tabs -->
+                        <div class="category-tabs" id="category-tabs">
+                            <!-- Category tabs will be loaded dynamically -->
+                        </div>
+
+                        <!-- Search Bar -->
+                        <div class="product-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="product-search-input" placeholder="Search products...">
+                        </div>
+
+                        <!-- Products Grid -->
+                        <div class="products-grid" id="products-grid">
+                            <!-- Products will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Right Side - Bill Summary -->
+                    <div class="bill-summary-new">
+                        <div class="bill-summary-header">
+                            <h3><i class="fas fa-receipt"></i> Order Items</h3>
+                            <button id="clear-bill-btn" class="btn-text-danger">
+                                <i class="fas fa-trash"></i> Clear All
+                            </button>
+                        </div>
+
+                        <!-- Bill Items List -->
+                        <div class="bill-items-list" id="bill-items-list">
+                            <div class="empty-bill-state">
+                                <i class="fas fa-shopping-cart"></i>
+                                <p>No items added</p>
+                                <span>Select products to add them to the bill</span>
+                            </div>
+                        </div>
+
+                        <!-- Bill Summary Footer -->
+                        <div class="bill-summary-footer">
+                            <div class="summary-row">
+                                <span>Subtotal:</span>
+                                <span id="bill-subtotal">₹0.00</span>
+                            </div>
+                            <div class="summary-row" id="tax-row" style="display: none;">
+                                <span>Tax: <span id="tax-info-label" style="font-size: 0.85em; color: #666;"></span></span>
+                                <span id="bill-tax">₹0.00</span>
+                            </div>
+                            <div class="summary-row discount-row">
+                                <span>Discount:</span>
+                                <input type="number" id="bill-discount" placeholder="0.00" min="0" step="0.01">
+                            </div>
+                            <div class="summary-row total-row">
+                                <span>Total Payable:</span>
+                                <span id="bill-total">₹0.00</span>
+                            </div>
+                            <button id="generate-bill-btn" class="btn btn-primary btn-lg btn-block">
+                                <i class="fas fa-check-circle"></i> Place Order
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Customers Page -->
+            <div id="customers-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-users"></i> Customers</h1>
+                    <div class="page-actions">
+                        <input type="text" id="search-customers" placeholder="Search customers..." class="search-input">
+                        <button id="add-customer-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Customer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="customers-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customers-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CRM & Loyalty Page -->
+            <div id="crm-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-user-tag"></i> CRM & Loyalty Points</h1>
+                    <div class="page-actions">
+                        <input type="text" id="search-crm" placeholder="Search customers..." class="search-input">
+                        <button id="export-crm-btn" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="crm-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="crm-total-customers">0</div>
+                            <div class="stat-label">Total Customers</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="crm-total-points-issued">0</div>
+                            <div class="stat-label">Total Points Issued</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="crm-top-customer-name">-</div>
+                            <div class="stat-label">Top Customer</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-details">
+                            <div class="stat-value" id="crm-avg-points">0</div>
+                            <div class="stat-label">Avg Points/Customer</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer List with Points -->
+                <div class="crm-content">
+                    <div class="crm-main">
+                        <div class="crm-card">
+                            <div class="crm-card-header">
+                                <h3><i class="fas fa-list"></i> Customer Points Overview</h3>
+                                <div class="crm-filters">
+                                    <select id="tier-filter" class="filter-select">
+                                        <option value="all">All Tiers</option>
+                                        <option value="gold">Gold (500+ pts)</option>
+                                        <option value="silver">Silver (200-499 pts)</option>
+                                        <option value="bronze">Bronze (1-199 pts)</option>
+                                        <option value="none">No Points</option>
+                                    </select>
+                                    <select id="sort-by" class="filter-select">
+                                        <option value="points-desc">Points: High to Low</option>
+                                        <option value="points-asc">Points: Low to High</option>
+                                        <option value="name">Name: A-Z</option>
+                                        <option value="recent">Recent Activity</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="crm-table-container">
+                                <table class="crm-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Customer</th>
+                                            <th>Contact</th>
+                                            <th>Tier</th>
+                                            <th>Points Balance</th>
+                                            <th>Last Transaction</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="crm-customers-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Sidebar -->
+                    <div class="crm-sidebar">
+                        <div class="crm-card">
+                            <div class="crm-card-header">
+                                <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                            </div>
+                            <div class="activity-timeline" id="crm-activity-timeline"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Page -->
+            <div id="products-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-box"></i> Products</h1>
+                    <div class="page-actions">
+                        <select id="filter-category" class="filter-select">
+                            <option value="all">All Categories</option>
+                        </select>
+                        <input type="text" id="search-products" placeholder="Search products..." class="search-input">
+                        <button id="add-product-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="products-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Cost Price</th>
+                                <th>Selling Price</th>
+                                <th>Profit (Margin)</th>
+                                <th>Tax (%)</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Categories Page -->
+            <div id="categories-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-tags"></i> Product Categories</h1>
+                    <div class="page-actions">
+                        <input type="text" id="search-categories" placeholder="Search categories..." class="search-input">
+                        <button id="clear-categories-btn" class="btn btn-danger" style="margin-right: 8px;">
+                            <i class="fas fa-trash-alt"></i> Clear All
+                        </button>
+                        <button id="add-category-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Category
+                        </button>
+                    </div>
+                </div>
+
+                <div class="categories-grid" id="categories-grid">
+                    <!-- Categories will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Billing History Page -->
+            <div id="history-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-history"></i> Billing History</h1>
+                    <div class="page-actions">
+                        <select id="history-period">
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                        <input type="text" id="search-history" placeholder="Search by bill ID or customer..." class="search-input">
+                        <button id="refresh-history-btn" class="btn btn-secondary">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Bill ID</th>
+                                <th>Date & Time</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Payment</th>
+                                <th>Total Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-chart-bar"></i> Reports</h1>
+                    <div class="page-actions">
+                        <select id="report-period">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                        <button id="export-report-btn" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <div id="reports-content">
+                    <!-- Reports will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settings-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-cog"></i> Settings</h1>
+                </div>
+
+                <div class="settings-container">
+                    <div class="settings-section">
+                        <h3>Business Information</h3>
+                        <form id="business-info-form">
+                            <div class="form-group">
+                                <label>Business Name</label>
+                                <input type="text" id="business-name" value="My Shop">
+                            </div>
+                            <div class="form-group">
+                                <label>Address</label>
+                                <textarea id="business-address" rows="3">123 Main Street, City, State</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Phone</label>
+                                <input type="tel" id="business-phone" value="+91 9876543210">
+                            </div>
+                            <div class="form-group">
+                                <label>GST Number</label>
+                                <input type="text" id="business-gst" value="">
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="enable-all-taxes" style="width: auto; height: 18px; cursor: pointer;" checked>
+                                    <span>Enable Tax Calculation</span>
+                                </label>
+                                <small style="color: #666; display: block; margin-top: 5px; margin-left: 28px;">
+                                    <i class="fas fa-info-circle"></i> Turn OFF to completely disable all taxes (product taxes + default tax)
+                                </small>
+                            </div>
+                            <div class="form-group" id="tax-settings-group" style="margin-left: 28px;">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="enable-default-tax" style="width: auto; height: 18px; cursor: pointer;">
+                                    <span>Enable Default Tax</span>
+                                </label>
+                                <div class="form-group" id="tax-percentage-group" style="margin-left: 28px; margin-top: 10px;">
+                                    <label>Default Tax Percentage (%)</label>
+                                    <input type="number" id="default-tax-percentage" value="0" min="0" max="100" step="0.01" placeholder="e.g., 18">
+                                    <small style="color: #666; display: block; margin-top: 5px;">
+                                        <i class="fas fa-info-circle"></i> This tax will be applied to all bills in addition to product-specific taxes
+                                    </small>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </form>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Database Management</h3>
+                        <div class="database-actions">
+                            <button id="backup-db-btn" class="btn btn-secondary">
+                                <i class="fas fa-download"></i> Backup Database
+                            </button>
+                            <button id="export-data-btn" class="btn btn-info">
+                                <i class="fas fa-file-export"></i> Export All Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-section danger-zone">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                        <p class="danger-warning">
+                            <strong>Warning:</strong> This action is permanent and cannot be undone. 
+                            All your data including products, customers, and bills will be deleted.
+                        </p>
+                        <div class="danger-actions">
+                            <button id="factory-reset-btn" class="btn btn-danger">
+                                <i class="fas fa-trash-restore"></i> Reset All Data
+                            </button>
+                            <p class="danger-description">
+                                Delete all data and reset the application to its initial state. 
+                                You will need to type "DELETE ALL" to confirm.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>
