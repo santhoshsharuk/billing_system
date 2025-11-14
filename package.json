@@ -22,18 +22,17 @@
   "license": "ISC",
   "devDependencies": {
     "chart.js": "^4.5.1",
-    "electron": "^28.3.3",
-    "electron-builder": "^24.9.1",
+    "electron": "^39.2.0",
+    "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.0",
-    "pdfkit": "^0.14.0"
+    "pdfkit": "^0.14.0",
+    "sql.js": "^1.13.0"
   },
   "build": {
     "appId": "com.billing.system",
     "productName": "Billing System",
-    "publish": "never",
     "directories": {
       "output": "dist"
     },

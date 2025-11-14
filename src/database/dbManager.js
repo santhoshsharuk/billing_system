@@ -1,18 +1,102 @@
-// dbManager.js - Database Manager using better-sqlite3
-const Database = require('better-sqlite3');
+// dbManager.js - Database Manager using sql.js
+const initSqlJs = require('sql.js');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 class DatabaseManager {
     constructor(dbPath) {
-        this.db = new Database(dbPath);
-        this.db.pragma('journal_mode = WAL');
+        this.dbPath = dbPath;
+        this.db = null;
+        this.ready = this.initialize();
+    }
+
+    async initialize() {
+        const SQL = await initSqlJs();
+        
+        // Load existing database or create new one
+        if (fs.existsSync(this.dbPath)) {
+            const buffer = fs.readFileSync(this.dbPath);
+            this.db = new SQL.Database(buffer);
+        } else {
+            this.db = new SQL.Database();
+        }
+        
         this.initializeTables();
         this.createDefaultUser();
+        this.saveDatabase();
+        return true;
+    }
+
+    saveDatabase() {
+        if (!this.db) return;
+        const data = this.db.export();
+        const buffer = Buffer.from(data);
+        const dir = path.dirname(this.dbPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(this.dbPath, buffer);
+    }
+
+    exec(sql) {
+        this.db.run(sql);
+        this.saveDatabase();
+    }
+
+    prepare(sql) {
+        return {
+            run: (...params) => {
+                this.db.run(sql, params);
+                this.saveDatabase();
+                return { lastInsertRowid: this.getLastInsertId() };
+            },
+            get: (...params) => {
+                const stmt = this.prepare(sql);
+                stmt.bind(params);
+                const result = stmt.step() ? stmt.getAsObject() : null;
+                stmt.free();
+                return result;
+            },
+            all: (...params) => {
+                const stmt = this.prepare(sql);
+                stmt.bind(params);
+                const results = [];
+                while (stmt.step()) {
+                    results.push(stmt.getAsObject());
+                }
+                stmt.free();
+                return results;
+            }
+        };
+    }
+
+    getLastInsertId() {
+        const stmt = this.prepare('SELECT last_insert_rowid() as id');
+        stmt.step();
+        const result = stmt.getAsObject();
+        stmt.free();
+        return result.id;
+    }
+
+    transaction(fn) {
+        return (data) => {
+            try {
+                this.db.run('BEGIN TRANSACTION');
+                const result = fn(data);
+                this.db.run('COMMIT');
+                this.saveDatabase();
+                return result;
+            } catch (error) {
+                this.db.run('ROLLBACK');
+                throw error;
+            }
+        };
     }
 
     initializeTables() {
         // Users table
-        this.db.exec(`
+        this.exec(`
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -23,7 +107,7 @@ class DatabaseManager {
         `);
 
         // Customers table
-        this.db.exec(`
+        this.exec(`
             CREATE TABLE IF NOT EXISTS customers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -36,7 +120,7 @@ class DatabaseManager {
         `);
 
         // Products table
-        this.db.exec(`
+        this.exec(`
             CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -51,7 +135,7 @@ class DatabaseManager {
         `);
 
         // Bills table
-        this.db.exec(`
+        this.exec(`
             CREATE TABLE IF NOT EXISTS bills (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_id INTEGER NOT NULL,
@@ -68,7 +152,7 @@ class DatabaseManager {
         `);
 
         // Bill items table
-        this.db.exec(`
+        this.exec(`
             CREATE TABLE IF NOT EXISTS bill_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bill_id INTEGER NOT NULL,
@@ -85,67 +169,36 @@ class DatabaseManager {
         `);
 
         // Create indexes
-        this.db.exec(`
+        this.exec(`
             CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date);
             CREATE INDEX IF NOT EXISTS idx_bills_customer ON bills(customer_id);
             CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
         `);
 
         // Migrations: Add new columns if they don't exist
-        try {
-            this.db.exec(`ALTER TABLE products ADD COLUMN image TEXT`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
+        const addColumnSafe = (table, column, type) => {
+            try {
+                this.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+            } catch (error) {
+                // Column already exists, ignore error
+            }
+        };
         
-        try {
-            this.db.exec(`ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE products ADD COLUMN category TEXT DEFAULT 'Others'`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE customers ADD COLUMN loyalty_points INTEGER DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE bills ADD COLUMN discount REAL DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE bills ADD COLUMN points_earned INTEGER DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE bills ADD COLUMN points_redeemed INTEGER DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
-        
-        try {
-            this.db.exec(`ALTER TABLE bill_items ADD COLUMN cost_price REAL DEFAULT 0`);
-        } catch (error) {
-            // Column already exists, ignore error
-        }
+        addColumnSafe('products', 'image', 'TEXT');
+        addColumnSafe('products', 'cost_price', 'REAL DEFAULT 0');
+        addColumnSafe('products', 'category', "TEXT DEFAULT 'Others'");
+        addColumnSafe('customers', 'loyalty_points', 'INTEGER DEFAULT 0');
+        addColumnSafe('bills', 'discount', 'REAL DEFAULT 0');
+        addColumnSafe('bills', 'points_earned', 'INTEGER DEFAULT 0');
+        addColumnSafe('bills', 'points_redeemed', 'INTEGER DEFAULT 0');
+        addColumnSafe('bill_items', 'cost_price', 'REAL DEFAULT 0');
     }
 
     createDefaultUser() {
-        const checkUser = this.db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
+        const checkUser = this.prepare('SELECT id FROM users WHERE username = ?').get('admin');
         if (!checkUser) {
             const password = this.hashPassword('admin123');
-            this.db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run('admin', password, 'admin');
+            this.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)').run('admin', password, 'admin');
         }
     }
 
@@ -156,7 +209,7 @@ class DatabaseManager {
     // ============ USER OPERATIONS ============
     authenticateUser(username, password) {
         const hashedPassword = this.hashPassword(password);
-        const user = this.db.prepare('SELECT id, username, role FROM users WHERE username = ? AND password = ?')
+        const user = this.prepare('SELECT id, username, role FROM users WHERE username = ? AND password = ?')
             .get(username, hashedPassword);
         
         if (!user) {
@@ -170,29 +223,29 @@ class DatabaseManager {
         const today = new Date().toISOString().split('T')[0];
 
         // Today's sales
-        const todaySalesResult = this.db.prepare(`
+        const todaySalesResult = this.prepare(`
             SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as count 
             FROM bills 
             WHERE DATE(date) = DATE(?)
         `).get(today);
 
         // Total profit (selling price - cost price)
-        const totalProfitResult = this.db.prepare(`
+        const totalProfitResult = this.prepare(`
             SELECT COALESCE(SUM((price - cost_price) * quantity), 0) as profit
             FROM bill_items
         `).get();
 
         // Total customers
-        const totalCustomers = this.db.prepare('SELECT COUNT(*) as count FROM customers').get().count;
+        const totalCustomers = this.prepare('SELECT COUNT(*) as count FROM customers').get().count;
 
         // Total products
-        const totalProducts = this.db.prepare('SELECT COUNT(*) as count FROM products').get().count;
+        const totalProducts = this.prepare('SELECT COUNT(*) as count FROM products').get().count;
 
         // Low stock products (stock <= 10)
-        const lowStockCount = this.db.prepare('SELECT COUNT(*) as count FROM products WHERE stock <= 10').get().count;
+        const lowStockCount = this.prepare('SELECT COUNT(*) as count FROM products WHERE stock <= 10').get().count;
 
         // Last 7 days sales data for chart
-        const salesData = this.db.prepare(`
+        const salesData = this.prepare(`
             SELECT DATE(date) as date, SUM(total) as total
             FROM bills
             WHERE date >= DATE('now', '-7 days')
@@ -225,11 +278,11 @@ class DatabaseManager {
 
     // ============ CUSTOMER OPERATIONS ============
     getAllCustomers() {
-        return this.db.prepare('SELECT * FROM customers ORDER BY created_at DESC').all();
+        return this.prepare('SELECT * FROM customers ORDER BY created_at DESC').all();
     }
 
     addCustomer(customer) {
-        const stmt = this.db.prepare(`
+        const stmt = this.prepare(`
             INSERT INTO customers (name, phone, email, address) 
             VALUES (?, ?, ?, ?)
         `);
@@ -238,7 +291,7 @@ class DatabaseManager {
     }
 
     updateCustomer(id, customer) {
-        const stmt = this.db.prepare(`
+        const stmt = this.prepare(`
             UPDATE customers 
             SET name = ?, phone = ?, email = ?, address = ? 
             WHERE id = ?
@@ -247,11 +300,11 @@ class DatabaseManager {
     }
 
     deleteCustomer(id) {
-        this.db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+        this.prepare('DELETE FROM customers WHERE id = ?').run(id);
     }
 
     searchCustomers(query) {
-        return this.db.prepare(`
+        return this.prepare(`
             SELECT * FROM customers 
             WHERE name LIKE ? OR phone LIKE ? OR email LIKE ?
             ORDER BY name
@@ -259,8 +312,8 @@ class DatabaseManager {
     }
 
     getCustomerLoyaltyInfo(customerId) {
-        const customer = this.db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
-        const totalPurchases = this.db.prepare(`
+        const customer = this.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+        const totalPurchases = this.prepare(`
             SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total 
             FROM bills WHERE customer_id = ?
         `).get(customerId);
@@ -275,11 +328,11 @@ class DatabaseManager {
 
     // ============ PRODUCT OPERATIONS ============
     getAllProducts() {
-        return this.db.prepare('SELECT * FROM products ORDER BY name').all();
+        return this.prepare('SELECT * FROM products ORDER BY name').all();
     }
 
     addProduct(product) {
-        const stmt = this.db.prepare(`
+        const stmt = this.prepare(`
             INSERT INTO products (name, category, cost_price, price, tax, stock, image) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
@@ -296,7 +349,7 @@ class DatabaseManager {
     }
 
     updateProduct(id, product) {
-        const stmt = this.db.prepare(`
+        const stmt = this.prepare(`
             UPDATE products 
             SET name = ?, category = ?, cost_price = ?, price = ?, tax = ?, stock = ?, image = ? 
             WHERE id = ?
@@ -314,11 +367,11 @@ class DatabaseManager {
     }
 
     deleteProduct(id) {
-        this.db.prepare('DELETE FROM products WHERE id = ?').run(id);
+        this.prepare('DELETE FROM products WHERE id = ?').run(id);
     }
 
     searchProducts(query) {
-        return this.db.prepare(`
+        return this.prepare(`
             SELECT * FROM products 
             WHERE name LIKE ? 
             ORDER BY name
@@ -326,7 +379,7 @@ class DatabaseManager {
     }
 
     updateProductStock(productId, quantity) {
-        this.db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(quantity, productId);
+        this.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(quantity, productId);
     }
 
     // ============ BILL OPERATIONS ============
@@ -366,7 +419,7 @@ class DatabaseManager {
             const pointsEarned = Math.floor(total);
 
             // Insert bill
-            const billStmt = this.db.prepare(`
+            const billStmt = this.prepare(`
                 INSERT INTO bills (customer_id, subtotal, discount, tax, total, payment_mode, points_earned, points_redeemed)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `);
@@ -383,7 +436,7 @@ class DatabaseManager {
             const billId = billResult.lastInsertRowid;
 
             // Insert bill items and update stock
-            const itemStmt = this.db.prepare(`
+            const itemStmt = this.prepare(`
                 INSERT INTO bill_items (bill_id, product_id, product_name, quantity, cost_price, price, tax, total)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `);
@@ -407,9 +460,9 @@ class DatabaseManager {
             });
 
             // Update customer loyalty points
-            const currentPoints = this.db.prepare('SELECT loyalty_points FROM customers WHERE id = ?').get(data.customer_id);
+            const currentPoints = this.prepare('SELECT loyalty_points FROM customers WHERE id = ?').get(data.customer_id);
             const newPoints = (currentPoints?.loyalty_points || 0) + pointsEarned - pointsRedeemed;
-            this.db.prepare('UPDATE customers SET loyalty_points = ? WHERE id = ?').run(newPoints, data.customer_id);
+            this.prepare('UPDATE customers SET loyalty_points = ? WHERE id = ?').run(newPoints, data.customer_id);
 
             return billId;
         });
@@ -432,11 +485,11 @@ class DatabaseManager {
 
         query += ' ORDER BY b.date DESC';
 
-        return this.db.prepare(query).all(...params);
+        return this.prepare(query).all(...params);
     }
 
     getBillById(id) {
-        const bill = this.db.prepare(`
+        const bill = this.prepare(`
             SELECT b.*, c.name as customer_name, c.phone as customer_phone, 
                    c.email as customer_email, c.address as customer_address
             FROM bills b
@@ -448,7 +501,7 @@ class DatabaseManager {
             throw new Error('Bill not found');
         }
 
-        const items = this.db.prepare(`
+        const items = this.prepare(`
             SELECT * FROM bill_items WHERE bill_id = ?
         `).all(id);
 
@@ -458,7 +511,7 @@ class DatabaseManager {
 
     deleteBill(id) {
         // Delete bill (cascade will delete items)
-        this.db.prepare('DELETE FROM bills WHERE id = ?').run(id);
+        this.prepare('DELETE FROM bills WHERE id = ?').run(id);
     }
 
     // ============ REPORTS ============
@@ -493,7 +546,7 @@ class DatabaseManager {
             ${dateFilter}
         `;
 
-        const salesData = this.db.prepare(query).get(...params);
+        const salesData = this.prepare(query).get(...params);
 
         // Get top products
         const topProductsQuery = `
@@ -508,7 +561,7 @@ class DatabaseManager {
             ORDER BY total_revenue DESC
             LIMIT 10
         `;
-        const topProducts = this.db.prepare(topProductsQuery).all(...params);
+        const topProducts = this.prepare(topProductsQuery).all(...params);
 
         // Get payment methods breakdown
         const paymentMethodsQuery = `
@@ -520,7 +573,7 @@ class DatabaseManager {
             ${dateFilter}
             GROUP BY payment_mode
         `;
-        const paymentMethods = this.db.prepare(paymentMethodsQuery).all(...params);
+        const paymentMethods = this.prepare(paymentMethodsQuery).all(...params);
 
         return {
             ...salesData,
@@ -530,7 +583,7 @@ class DatabaseManager {
     }
 
     getCustomerPurchaseHistory(customerId) {
-        return this.db.prepare(`
+        return this.prepare(`
             SELECT b.*, 
                    (SELECT COUNT(*) FROM bill_items WHERE bill_id = b.id) as item_count
             FROM bills b
@@ -540,7 +593,10 @@ class DatabaseManager {
     }
 
     close() {
-        this.db.close();
+        if (this.db) {
+            this.saveDatabase();
+            this.db.close();
+        }
     }
 }
 

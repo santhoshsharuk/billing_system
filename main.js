@@ -10,9 +10,10 @@ let db;
 let invoiceGen;
 
 // Initialize database and invoice generator
-function initializeServices() {
+async function initializeServices() {
   const dbPath = path.join(app.getPath('userData'), 'billing.db');
   db = new DatabaseManager(dbPath);
+  await db.ready; // Wait for async initialization
   invoiceGen = new InvoiceGenerator(path.join(app.getPath('userData'), 'invoices'));
 }
 
@@ -48,8 +49,8 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  initializeServices();
+app.whenReady().then(async () => {
+  await initializeServices();
   createWindow();
 
   app.on('activate', () => {
@@ -327,7 +328,7 @@ ipcMain.handle('database:factoryReset', async () => {
       fs.unlinkSync(dbPath);
     }
     
-    // Delete WAL and SHM files if they exist
+    // Delete WAL and SHM files if they exist (from old better-sqlite3 - no longer needed)
     const walPath = dbPath + '-wal';
     const shmPath = dbPath + '-shm';
     if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
@@ -335,6 +336,7 @@ ipcMain.handle('database:factoryReset', async () => {
     
     // Reinitialize the database with the correct path
     db = new DatabaseManager(dbPath);
+    await db.ready; // Wait for async initialization
     
     // Reinitialize invoice generator
     invoiceGen = new InvoiceGenerator(path.join(app.getPath('userData'), 'invoices'));
