@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.billing.system",
     "productName": "Billing System",
+    "publish": "never",
     "directories": {
       "output": "dist"
     },
