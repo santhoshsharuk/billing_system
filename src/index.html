@@ -78,6 +78,10 @@
                     <i class="fas fa-history"></i>
                     <span>Billing History</span>
                 </a>
+                <a href="#" class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Analytics</span>
+                </a>
                 <a href="#" class="nav-item" data-page="reports">
                     <i class="fas fa-chart-bar"></i>
                     <span>Reports</span>
@@ -109,9 +113,31 @@
                             <option value="today">Today</option>
                             <option value="week" selected>This Week</option>
                             <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom Date Range</option>
                         </select>
                         <button id="refresh-dashboard" class="btn btn-sm btn-secondary">
                             <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range for Dashboard -->
+                <div id="dashboard-custom-date" class="custom-date-filter" style="display: none;">
+                    <div class="date-filter-container">
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> From:</label>
+                            <input type="date" id="dashboard-start-date" class="date-input">
+                        </div>
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> To:</label>
+                            <input type="date" id="dashboard-end-date" class="date-input">
+                        </div>
+                        <button id="dashboard-apply-date" class="btn btn-sm btn-primary">
+                            <i class="fas fa-check"></i> Apply
+                        </button>
+                        <button id="dashboard-clear-date" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-times"></i> Clear
                         </button>
                     </div>
                 </div>
@@ -511,10 +537,32 @@
                             <option value="today">Today</option>
                             <option value="week">This Week</option>
                             <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom Date Range</option>
                         </select>
                         <input type="text" id="search-history" placeholder="Search by bill ID or customer..." class="search-input">
                         <button id="refresh-history-btn" class="btn btn-secondary">
                             <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range for History -->
+                <div id="history-custom-date" class="custom-date-filter" style="display: none;">
+                    <div class="date-filter-container">
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> From:</label>
+                            <input type="date" id="history-start-date" class="date-input">
+                        </div>
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> To:</label>
+                            <input type="date" id="history-end-date" class="date-input">
+                        </div>
+                        <button id="history-apply-date" class="btn btn-sm btn-primary">
+                            <i class="fas fa-check"></i> Apply
+                        </button>
+                        <button id="history-clear-date" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-times"></i> Clear
                         </button>
                     </div>
                 </div>
@@ -537,6 +585,190 @@
                 </div>
             </div>
 
+            <!-- Analytics Page -->
+            <div id="analytics-page" class="page">
+                <div class="page-header">
+                    <h1><i class="fas fa-chart-pie"></i> Business Analytics</h1>
+                    <div class="page-actions">
+                        <select id="analytics-period">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Date Range</option>
+                        </select>
+                        <button id="refresh-analytics-btn" class="btn btn-secondary">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range for Analytics -->
+                <div id="analytics-custom-date" class="custom-date-filter" style="display: none;">
+                    <div class="date-filter-container">
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> From:</label>
+                            <input type="date" id="analytics-start-date" class="date-input">
+                        </div>
+                        <div class="date-filter-group">
+                            <label><i class="fas fa-calendar-alt"></i> To:</label>
+                            <input type="date" id="analytics-end-date" class="date-input">
+                        </div>
+                        <button id="analytics-apply-date" class="btn btn-sm btn-primary">
+                            <i class="fas fa-check"></i> Apply
+                        </button>
+                        <button id="analytics-clear-date" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="analytics-metrics">
+                    <div class="metric-card revenue">
+                        <div class="metric-icon">
+                            <i class="fas fa-rupee-sign"></i>
+                        </div>
+                        <div class="metric-info">
+                            <p class="metric-label">Total Revenue</p>
+                            <h2 id="metric-revenue">₹0</h2>
+                            <span class="metric-change" id="revenue-change">+0%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card profit">
+                        <div class="metric-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="metric-info">
+                            <p class="metric-label">Total Profit</p>
+                            <h2 id="metric-profit">₹0</h2>
+                            <span class="metric-change" id="profit-change">+0%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card orders">
+                        <div class="metric-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="metric-info">
+                            <p class="metric-label">Total Orders</p>
+                            <h2 id="metric-orders">0</h2>
+                            <span class="metric-change" id="orders-change">+0%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card avg-order">
+                        <div class="metric-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="metric-info">
+                            <p class="metric-label">Avg Order Value</p>
+                            <h2 id="metric-avg">₹0</h2>
+                            <span class="metric-change" id="avg-change">+0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 1 -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Revenue Trend</h3>
+                            <select id="revenue-chart-type" class="chart-type-select">
+                                <option value="daily">Daily</option>
+                                <option value="weekly" selected>Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="revenue-trend-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-coins"></i> Profit Margin</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="profit-margin-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-fire"></i> Top Selling Products</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="top-products-analytics" class="top-items-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-star"></i> Top Customers</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="top-customers-analytics" class="top-items-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 3 -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-credit-card"></i> Payment Methods</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="payment-methods-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-tags"></i> Sales by Category</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="category-sales-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Stats -->
+                <div class="analytics-stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+                        <div class="stat-content">
+                            <h4 id="profit-margin-percent">0%</h4>
+                            <p>Profit Margin</p>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-icon"><i class="fas fa-box"></i></div>
+                        <div class="stat-content">
+                            <h4 id="items-sold">0</h4>
+                            <p>Items Sold</p>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-content">
+                            <h4 id="active-customers">0</h4>
+                            <p>Active Customers</p>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-icon"><i class="fas fa-chart-bar"></i></div>
+                        <div class="stat-content">
+                            <h4 id="growth-rate">0%</h4>
+                            <p>Growth Rate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Reports Page -->
             <div id="reports-page" class="page">
                 <div class="page-header">
@@ -546,16 +778,341 @@
                             <option value="today">Today</option>
                             <option value="week">This Week</option>
                             <option value="month">This Month</option>
+                            <option value="year">This Year</option>
                             <option value="custom">Custom Range</option>
                         </select>
                         <button id="export-report-btn" class="btn btn-secondary">
                             <i class="fas fa-download"></i> Export
                         </button>
+                        <button id="print-report-btn" class="btn btn-info">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Type Tabs -->
+                <div class="report-tabs">
+                    <button class="report-tab active" data-report="sales">
+                        <i class="fas fa-shopping-cart"></i> Sales Report
+                    </button>
+                    <button class="report-tab" data-report="profit">
+                        <i class="fas fa-chart-line"></i> Profit Report
+                    </button>
+                    <button class="report-tab" data-report="inventory">
+                        <i class="fas fa-box"></i> Inventory Report
+                    </button>
+                    <button class="report-tab" data-report="customer">
+                        <i class="fas fa-users"></i> Customer Report
+                    </button>
+                    <button class="report-tab" data-report="payment">
+                        <i class="fas fa-credit-card"></i> Payment Report
+                    </button>
+                </div>
+
+                <!-- Custom Date Range Picker (hidden by default) -->
+                <div id="custom-date-range" class="custom-date-range" style="display: none;">
+                    <div class="date-inputs">
+                        <div class="date-input-group">
+                            <label>From Date:</label>
+                            <input type="date" id="report-start-date">
+                        </div>
+                        <div class="date-input-group">
+                            <label>To Date:</label>
+                            <input type="date" id="report-end-date">
+                        </div>
+                        <button id="apply-custom-range" class="btn btn-primary btn-sm">Apply</button>
                     </div>
                 </div>
 
                 <div id="reports-content">
-                    <!-- Reports will be loaded here -->
+                    <!-- Sales Report Content -->
+                    <div id="sales-report" class="report-section active">
+                        <div class="report-summary-cards">
+                            <div class="summary-card">
+                                <h3>Total Sales</h3>
+                                <div class="summary-value" id="report-total-sales">₹0</div>
+                                <div class="summary-change" id="report-sales-change">+0%</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Total Orders</h3>
+                                <div class="summary-value" id="report-total-orders">0</div>
+                                <div class="summary-change" id="report-orders-change">+0%</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Average Order</h3>
+                                <div class="summary-value" id="report-avg-order">₹0</div>
+                                <div class="summary-change" id="report-avg-change">+0%</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Total Items</h3>
+                                <div class="summary-value" id="report-total-items">0</div>
+                                <div class="summary-change" id="report-items-change">+0%</div>
+                            </div>
+                        </div>
+
+                        <!-- Sales Charts -->
+                        <div class="report-charts-grid">
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-line"></i> Daily Sales Trend</h3>
+                                <canvas id="sales-trend-chart"></canvas>
+                            </div>
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-pie"></i> Sales Distribution</h3>
+                                <canvas id="sales-distribution-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Sales Breakdown</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Bills</th>
+                                        <th>Items Sold</th>
+                                        <th>Revenue</th>
+                                        <th>Avg Order</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sales-breakdown-body"></tbody>
+                                <tfoot>
+                                    <tr class="total-row">
+                                        <td><strong>Total</strong></td>
+                                        <td><strong id="sales-total-bills">0</strong></td>
+                                        <td><strong id="sales-total-items">0</strong></td>
+                                        <td><strong id="sales-total-revenue">₹0</strong></td>
+                                        <td><strong id="sales-avg-order">₹0</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Top Products</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Product</th>
+                                        <th>Qty Sold</th>
+                                        <th>Revenue</th>
+                                        <th>% of Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-products-report-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Profit Report Content -->
+                    <div id="profit-report" class="report-section">
+                        <div class="report-summary-cards">
+                            <div class="summary-card profit">
+                                <h3>Total Profit</h3>
+                                <div class="summary-value" id="report-total-profit">₹0</div>
+                                <div class="summary-change" id="report-profit-change">+0%</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Profit Margin</h3>
+                                <div class="summary-value" id="report-profit-margin">0%</div>
+                                <div class="summary-change" id="report-margin-change">+0%</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Total Cost</h3>
+                                <div class="summary-value" id="report-total-cost">₹0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Total Revenue</h3>
+                                <div class="summary-value" id="report-profit-revenue">₹0</div>
+                            </div>
+                        </div>
+
+                        <!-- Profit Charts -->
+                        <div class="report-charts-grid">
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-bar"></i> Profit by Product</h3>
+                                <canvas id="profit-product-chart"></canvas>
+                            </div>
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-area"></i> Cost vs Revenue</h3>
+                                <canvas id="cost-revenue-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Profit by Product</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Qty Sold</th>
+                                        <th>Cost</th>
+                                        <th>Revenue</th>
+                                        <th>Profit</th>
+                                        <th>Margin %</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profit-by-product-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Report Content -->
+                    <div id="inventory-report" class="report-section">
+                        <div class="report-summary-cards">
+                            <div class="summary-card">
+                                <h3>Total Products</h3>
+                                <div class="summary-value" id="report-total-products">0</div>
+                            </div>
+                            <div class="summary-card warning">
+                                <h3>Low Stock</h3>
+                                <div class="summary-value" id="report-low-stock">0</div>
+                            </div>
+                            <div class="summary-card danger">
+                                <h3>Out of Stock</h3>
+                                <div class="summary-value" id="report-out-stock">0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Stock Value</h3>
+                                <div class="summary-value" id="report-stock-value">₹0</div>
+                            </div>
+                        </div>
+
+                        <!-- Inventory Charts -->
+                        <div class="report-charts-grid">
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-pie"></i> Stock Status Distribution</h3>
+                                <canvas id="stock-status-chart"></canvas>
+                            </div>
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-bar"></i> Stock Value by Category</h3>
+                                <canvas id="stock-value-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Stock Status</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Category</th>
+                                        <th>Current Stock</th>
+                                        <th>Cost Price</th>
+                                        <th>Selling Price</th>
+                                        <th>Stock Value</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-status-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Customer Report Content -->
+                    <div id="customer-report" class="report-section">
+                        <div class="report-summary-cards">
+                            <div class="summary-card">
+                                <h3>Total Customers</h3>
+                                <div class="summary-value" id="report-total-customers">0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Active Customers</h3>
+                                <div class="summary-value" id="report-active-customers">0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>New Customers</h3>
+                                <div class="summary-value" id="report-new-customers">0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Avg Spending</h3>
+                                <div class="summary-value" id="report-avg-spending">₹0</div>
+                            </div>
+                        </div>
+
+                        <!-- Customer Charts -->
+                        <div class="report-charts-grid">
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-bar"></i> Top 10 Customers</h3>
+                                <canvas id="top-customers-chart"></canvas>
+                            </div>
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-doughnut"></i> Customer Activity</h3>
+                                <canvas id="customer-activity-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Customer Purchase Summary</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Phone</th>
+                                        <th>Orders</th>
+                                        <th>Total Spent</th>
+                                        <th>Avg Order</th>
+                                        <th>Loyalty Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customer-summary-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Payment Report Content -->
+                    <div id="payment-report" class="report-section">
+                        <div class="report-summary-cards">
+                            <div class="summary-card">
+                                <h3>Cash</h3>
+                                <div class="summary-value" id="report-cash-total">₹0</div>
+                                <div class="summary-subtitle" id="report-cash-count">0 transactions</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>UPI</h3>
+                                <div class="summary-value" id="report-upi-total">₹0</div>
+                                <div class="summary-subtitle" id="report-upi-count">0 transactions</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Card</h3>
+                                <div class="summary-value" id="report-card-total">₹0</div>
+                                <div class="summary-subtitle" id="report-card-count">0 transactions</div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Cheque</h3>
+                                <div class="summary-value" id="report-cheque-total">₹0</div>
+                                <div class="summary-subtitle" id="report-cheque-count">0 transactions</div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Charts -->
+                        <div class="report-charts-grid">
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-pie"></i> Payment Method Distribution</h3>
+                                <canvas id="payment-distribution-chart"></canvas>
+                            </div>
+                            <div class="report-chart-card">
+                                <h3><i class="fas fa-chart-bar"></i> Transaction Volume</h3>
+                                <canvas id="payment-volume-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="report-table-container">
+                            <h3>Payment Method Breakdown</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Payment Method</th>
+                                        <th>Transactions</th>
+                                        <th>Total Amount</th>
+                                        <th>% of Total</th>
+                                        <th>Avg Transaction</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payment-breakdown-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -14,8 +14,131 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeProductsPage();
     initializeReportsPage();
     initializeHistoryPage();
+    initializeAnalyticsPage();
     initializeSettings();
+    initializeCustomDateFilters();
 });
+
+// ============ CUSTOM DATE FILTERS ============
+function initializeCustomDateFilters() {
+    // Dashboard custom date filter
+    const dashboardPeriod = document.getElementById('dashboard-period');
+    if (dashboardPeriod) {
+        dashboardPeriod.addEventListener('change', function() {
+            const customDateDiv = document.getElementById('dashboard-custom-date');
+            if (this.value === 'custom') {
+                customDateDiv.style.display = 'block';
+                setDefaultDateRange('dashboard');
+            } else {
+                customDateDiv.style.display = 'none';
+                loadDashboard();
+            }
+        });
+    }
+    
+    const dashboardApply = document.getElementById('dashboard-apply-date');
+    if (dashboardApply) {
+        dashboardApply.addEventListener('click', () => loadDashboard());
+    }
+    
+    const dashboardClear = document.getElementById('dashboard-clear-date');
+    if (dashboardClear) {
+        dashboardClear.addEventListener('click', () => {
+            document.getElementById('dashboard-period').value = 'week';
+            document.getElementById('dashboard-custom-date').style.display = 'none';
+            loadDashboard();
+        });
+    }
+    
+    // History custom date filter
+    const historyPeriod = document.getElementById('history-period');
+    if (historyPeriod) {
+        historyPeriod.addEventListener('change', function() {
+            const customDateDiv = document.getElementById('history-custom-date');
+            if (this.value === 'custom') {
+                customDateDiv.style.display = 'block';
+                setDefaultDateRange('history');
+            } else {
+                customDateDiv.style.display = 'none';
+                loadBillingHistory();
+            }
+        });
+    }
+    
+    const historyApply = document.getElementById('history-apply-date');
+    if (historyApply) {
+        historyApply.addEventListener('click', () => loadBillingHistory());
+    }
+    
+    const historyClear = document.getElementById('history-clear-date');
+    if (historyClear) {
+        historyClear.addEventListener('click', () => {
+            document.getElementById('history-period').value = 'all';
+            document.getElementById('history-custom-date').style.display = 'none';
+            loadBillingHistory();
+        });
+    }
+    
+    // Analytics custom date filter
+    const analyticsPeriod = document.getElementById('analytics-period');
+    if (analyticsPeriod) {
+        analyticsPeriod.addEventListener('change', function() {
+            const customDateDiv = document.getElementById('analytics-custom-date');
+            if (this.value === 'custom') {
+                customDateDiv.style.display = 'block';
+                setDefaultDateRange('analytics');
+            } else {
+                customDateDiv.style.display = 'none';
+                loadAnalytics();
+            }
+        });
+    }
+    
+    const analyticsApply = document.getElementById('analytics-apply-date');
+    if (analyticsApply) {
+        analyticsApply.addEventListener('click', () => loadAnalytics());
+    }
+    
+    const analyticsClear = document.getElementById('analytics-clear-date');
+    if (analyticsClear) {
+        analyticsClear.addEventListener('click', () => {
+            document.getElementById('analytics-period').value = 'month';
+            document.getElementById('analytics-custom-date').style.display = 'none';
+            loadAnalytics();
+        });
+    }
+}
+
+function setDefaultDateRange(page) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30); // Default 30 days ago
+    
+    const startDateInput = document.getElementById(`${page}-start-date`);
+    const endDateInput = document.getElementById(`${page}-end-date`);
+    
+    if (startDateInput) startDateInput.valueAsDate = startDate;
+    if (endDateInput) endDateInput.valueAsDate = endDate;
+}
+
+function getCustomDateRange(page) {
+    const periodSelect = document.getElementById(`${page}-period`);
+    if (!periodSelect || periodSelect.value !== 'custom') {
+        return null;
+    }
+    
+    const startDateInput = document.getElementById(`${page}-start-date`);
+    const endDateInput = document.getElementById(`${page}-end-date`);
+    
+    if (!startDateInput || !endDateInput || !startDateInput.value || !endDateInput.value) {
+        return null;
+    }
+    
+    return {
+        startDate: new Date(startDateInput.value),
+        endDate: new Date(endDateInput.value)
+    };
+}
 
 // ============ LOGIN ============
 function initializeLoginForm() {
@@ -92,6 +215,9 @@ function loadPageData(page) {
             break;
         case 'history':
             loadBillingHistory();
+            break;
+        case 'analytics':
+            loadAnalytics();
             break;
         case 'reports':
             loadReports();
@@ -761,10 +887,14 @@ async function generateBill() {
 
     const result = await window.electronAPI.bills.create(billData);
     if (result.success) {
-        showToast('Bill generated successfully!', 'success');
+        const billId = result.billId;
         
-        // Open PDF
-        await window.electronAPI.invoice.open(result.pdfPath);
+        // Get customer phone
+        const customer = allCustomers.find(c => c.id === parseInt(customerId));
+        const customerPhone = customer ? customer.phone : '';
+        
+        // Show options modal
+        showBillSuccessModal(billId, customerPhone);
         
         // Clear bill
         clearBill();
@@ -776,6 +906,39 @@ async function generateBill() {
     } else {
         showToast(result.error || 'Failed to generate bill', 'error');
     }
+}
+
+function showBillSuccessModal(billId, customerPhone) {
+    const modalHTML = `
+        <div class="modal-overlay">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2><i class="fas fa-check-circle" style="color: #4CAF50;"></i> Bill Generated Successfully!</h2>
+                </div>
+                <div class="modal-body" style="text-align: center; padding: 30px;">
+                    <div style="font-size: 48px; color: #4CAF50; margin-bottom: 20px;">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <h3 style="margin-bottom: 10px;">Bill #${billId}</h3>
+                    <p style="color: #666; margin-bottom: 30px;">What would you like to do next?</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <button class="btn btn-success btn-lg" onclick="sendBillOnWhatsApp(${billId}, '${customerPhone}'); closeModal();" style="width: 100%;">
+                            <i class="fab fa-whatsapp"></i> Send on WhatsApp
+                        </button>
+                        <button class="btn btn-info btn-lg" onclick="printBill(${billId}); closeModal();" style="width: 100%;">
+                            <i class="fas fa-print"></i> Print Bill
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeModal();" style="width: 100%;">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    showModal(modalHTML);
 }
 
 function clearBill() {
@@ -1286,7 +1449,17 @@ async function loadBillingHistory() {
             
             // Filter by period
             let filteredBills = allBills;
-            if (period !== 'all') {
+            
+            // Check for custom date range
+            const customRange = getCustomDateRange('history');
+            if (customRange) {
+                const endDate = new Date(customRange.endDate);
+                endDate.setHours(23, 59, 59, 999);
+                filteredBills = allBills.filter(bill => {
+                    const billDate = new Date(bill.date);
+                    return billDate >= customRange.startDate && billDate <= endDate;
+                });
+            } else if (period !== 'all') {
                 const now = new Date();
                 let startDate;
                 
@@ -1299,6 +1472,9 @@ async function loadBillingHistory() {
                         break;
                     case 'month':
                         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                        break;
+                    case 'year':
+                        startDate = new Date(now.getFullYear(), 0, 1);
                         break;
                 }
                 
@@ -1382,6 +1558,9 @@ function renderBillingHistory(bills) {
                 <td class="action-btns">
                     <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewBillDetails(${bill.id})" title="View Details">
                         <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); sendBillOnWhatsApp(${bill.id}, '${bill.customer_phone}')" title="Send on WhatsApp">
+                        <i class="fab fa-whatsapp"></i>
                     </button>
                     <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printBill(${bill.id})" title="Print Bill">
                         <i class="fas fa-print"></i>
@@ -1494,6 +1673,9 @@ async function viewBillDetails(billId) {
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                        <button class="btn btn-success" onclick="sendBillOnWhatsApp(${bill.id}, '${bill.customer_phone}'); closeModal();">
+                            <i class="fab fa-whatsapp"></i> Send on WhatsApp
+                        </button>
                         <button class="btn btn-info" onclick="printBill(${bill.id}); closeModal();">
                             <i class="fas fa-print"></i> Print Bill
                         </button>
@@ -1533,6 +1715,30 @@ async function printBill(billId) {
     }
 }
 
+async function sendBillOnWhatsApp(billId, phoneNumber) {
+    try {
+        if (!phoneNumber) {
+            showToast('Customer phone number not available', 'error');
+            return;
+        }
+        
+        const result = await window.electronAPI.whatsapp.sendBill({
+            billId: billId,
+            phoneNumber: phoneNumber
+        });
+        
+        if (result.success) {
+            showToast('Opening WhatsApp...', 'success');
+        } else {
+            showToast(result.error || 'Failed to send on WhatsApp', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error sending bill on WhatsApp:', error);
+        showToast('Failed to send on WhatsApp', 'error');
+    }
+}
+
 function showModal(html) {
     document.getElementById('modal-container').innerHTML = html;
 }
@@ -1540,11 +1746,1636 @@ function showModal(html) {
 // Make functions available globally
 window.viewBillDetails = viewBillDetails;
 window.printBill = printBill;
+window.sendBillOnWhatsApp = sendBillOnWhatsApp;
+
+// ============ ANALYTICS PAGE ============
+let revenueTrendChart = null;
+let profitMarginChart = null;
+let paymentMethodsChart = null;
+let categorySalesChart = null;
+
+function initializeAnalyticsPage() {
+    const analyticsPeriod = document.getElementById('analytics-period');
+    if (analyticsPeriod) {
+        analyticsPeriod.addEventListener('change', loadAnalytics);
+    }
+
+    const refreshBtn = document.getElementById('refresh-analytics-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadAnalytics);
+    }
+
+    const revenueChartType = document.getElementById('revenue-chart-type');
+    if (revenueChartType) {
+        revenueChartType.addEventListener('change', loadAnalytics);
+    }
+}
+
+async function loadAnalytics() {
+    try {
+        const period = document.getElementById('analytics-period')?.value || 'month';
+        
+        // Get data
+        const billsResult = await window.electronAPI.bills.getAll();
+        const productsResult = await window.electronAPI.products.getAll();
+        const customersResult = await window.electronAPI.customers.getAll();
+        
+        if (!billsResult.success || !productsResult.success || !customersResult.success) {
+            showToast('Failed to load analytics data', 'error');
+            return;
+        }
+        
+        const bills = billsResult.data;
+        const products = productsResult.data;
+        const customers = customersResult.data;
+        
+        // Filter bills by period
+        const filteredBills = filterBillsByPeriod(bills, period);
+        
+        // Calculate metrics
+        const analytics = calculateAnalytics(filteredBills, products, customers, bills);
+        
+        // Update UI
+        updateMetrics(analytics);
+        updateRevenueTrendChart(filteredBills, period);
+        updateProfitMarginChart(analytics);
+        updateTopProducts(filteredBills);
+        updateTopCustomers(filteredBills, customers);
+        updatePaymentMethodsChart(filteredBills);
+        updateCategorySalesChart(filteredBills);
+        updateAdditionalStats(analytics);
+        
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+        showToast('Failed to load analytics', 'error');
+    }
+}
+
+function filterBillsByPeriod(bills, period) {
+    // Check for custom date range
+    const customRange = getCustomDateRange('analytics');
+    if (customRange) {
+        const endDate = new Date(customRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        return bills.filter(bill => {
+            const billDate = new Date(bill.date);
+            return billDate >= customRange.startDate && billDate <= endDate;
+        });
+    }
+    
+    const now = new Date();
+    let startDate;
+    
+    switch(period) {
+        case 'today':
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+        case 'week':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+        case 'year':
+            startDate = new Date(now.getFullYear(), 0, 1);
+            break;
+        case 'all':
+            return bills;
+    }
+    
+    return bills.filter(bill => new Date(bill.date) >= startDate);
+}
+
+function calculateAnalytics(filteredBills, products, customers, allBills) {
+    // Revenue and orders
+    const revenue = filteredBills.reduce((sum, bill) => sum + bill.total, 0);
+    const orders = filteredBills.length;
+    const avgOrderValue = orders > 0 ? revenue / orders : 0;
+    
+    // Calculate profit from bill items
+    let totalProfit = 0;
+    let totalCost = 0;
+    
+    filteredBills.forEach(bill => {
+        // Parse items if it's a string
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        
+        items.forEach(item => {
+            const cost = (item.cost_price || 0) * item.quantity;
+            const selling = item.price * item.quantity;
+            totalProfit += (selling - cost);
+            totalCost += cost;
+        });
+    });
+    
+    const profitMargin = revenue > 0 ? (totalProfit / revenue) * 100 : 0;
+    
+    // Calculate items sold
+    const itemsSold = filteredBills.reduce((sum, bill) => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        return sum + items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+    }, 0);
+    
+    // Active customers (customers who made purchases in period)
+    const activeCustomers = new Set(filteredBills.map(bill => bill.customer_id)).size;
+    
+    // Calculate growth rate (compare with previous period)
+    const growthRate = calculateGrowthRate(filteredBills, allBills);
+    
+    // Calculate percentage changes
+    const previousPeriodBills = getPreviousPeriodBills(allBills);
+    const prevRevenue = previousPeriodBills.reduce((sum, bill) => sum + bill.total, 0);
+    const prevOrders = previousPeriodBills.length;
+    
+    let prevProfit = 0;
+    previousPeriodBills.forEach(bill => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            const cost = (item.cost_price || 0) * item.quantity;
+            const selling = item.price * item.quantity;
+            prevProfit += (selling - cost);
+        });
+    });
+    
+    const prevAvg = prevOrders > 0 ? prevRevenue / prevOrders : 0;
+    
+    const revenueChange = prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue * 100) : 0;
+    const profitChange = prevProfit > 0 ? ((totalProfit - prevProfit) / prevProfit * 100) : 0;
+    const ordersChange = prevOrders > 0 ? ((orders - prevOrders) / prevOrders * 100) : 0;
+    const avgChange = prevAvg > 0 ? ((avgOrderValue - prevAvg) / prevAvg * 100) : 0;
+    
+    return {
+        revenue,
+        totalProfit,
+        orders,
+        avgOrderValue,
+        profitMargin,
+        itemsSold,
+        activeCustomers,
+        growthRate,
+        revenueChange,
+        profitChange,
+        ordersChange,
+        avgChange
+    };
+}
+
+function getPreviousPeriodBills(allBills) {
+    const period = document.getElementById('analytics-period')?.value || 'month';
+    const now = new Date();
+    let startDate, endDate;
+    
+    switch(period) {
+        case 'today':
+            endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+            break;
+        case 'week':
+            endDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            break;
+        case 'year':
+            endDate = new Date(now.getFullYear(), 0, 1);
+            startDate = new Date(now.getFullYear() - 1, 0, 1);
+            break;
+        default:
+            return [];
+    }
+    
+    return allBills.filter(bill => {
+        const billDate = new Date(bill.date);
+        return billDate >= startDate && billDate < endDate;
+    });
+}
+
+function calculateGrowthRate(filteredBills, allBills) {
+    const previousPeriodBills = getPreviousPeriodBills(allBills);
+    const currentRevenue = filteredBills.reduce((sum, bill) => sum + bill.total, 0);
+    const previousRevenue = previousPeriodBills.reduce((sum, bill) => sum + bill.total, 0);
+    
+    if (previousRevenue === 0) return 0;
+    return ((currentRevenue - previousRevenue) / previousRevenue * 100);
+}
+
+function updateMetrics(analytics) {
+    document.getElementById('metric-revenue').textContent = `₹${analytics.revenue.toFixed(2)}`;
+    document.getElementById('metric-profit').textContent = `₹${analytics.totalProfit.toFixed(2)}`;
+    document.getElementById('metric-orders').textContent = analytics.orders;
+    document.getElementById('metric-avg').textContent = `₹${analytics.avgOrderValue.toFixed(2)}`;
+    
+    // Update change indicators
+    updateChangeIndicator('revenue-change', analytics.revenueChange);
+    updateChangeIndicator('profit-change', analytics.profitChange);
+    updateChangeIndicator('orders-change', analytics.ordersChange);
+    updateChangeIndicator('avg-change', analytics.avgChange);
+}
+
+function updateChangeIndicator(elementId, change) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const isPositive = change >= 0;
+    element.className = 'metric-change ' + (isPositive ? 'positive' : 'negative');
+    element.innerHTML = `<i class="fas fa-arrow-${isPositive ? 'up' : 'down'}"></i> ${Math.abs(change).toFixed(1)}%`;
+}
+
+function updateRevenueTrendChart(bills, period) {
+    const ctx = document.getElementById('revenue-trend-chart');
+    if (!ctx) return;
+    
+    if (revenueTrendChart) {
+        revenueTrendChart.destroy();
+    }
+    
+    const chartData = prepareRevenueTrendData(bills, period);
+    
+    revenueTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'Revenue',
+                data: chartData.values,
+                borderColor: '#4CAF50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointBackgroundColor: '#4CAF50',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: ₹' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function prepareRevenueTrendData(bills, period) {
+    const chartType = document.getElementById('revenue-chart-type')?.value || 'weekly';
+    const now = new Date();
+    const labels = [];
+    const values = [];
+    
+    if (chartType === 'daily') {
+        // Last 7 days
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = date.toISOString().split('T')[0];
+            labels.push(date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+            
+            const dayRevenue = bills
+                .filter(bill => bill.date.split('T')[0] === dateStr)
+                .reduce((sum, bill) => sum + bill.total, 0);
+            values.push(dayRevenue);
+        }
+    } else if (chartType === 'weekly') {
+        // Last 4 weeks
+        for (let i = 3; i >= 0; i--) {
+            const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
+            const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+            labels.push(`Week ${4 - i}`);
+            
+            const weekRevenue = bills
+                .filter(bill => {
+                    const billDate = new Date(bill.date);
+                    return billDate >= weekStart && billDate < weekEnd;
+                })
+                .reduce((sum, bill) => sum + bill.total, 0);
+            values.push(weekRevenue);
+        }
+    } else {
+        // Last 6 months
+        for (let i = 5; i >= 0; i--) {
+            const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            labels.push(month.toLocaleDateString('en-IN', { month: 'short' }));
+            
+            const monthRevenue = bills
+                .filter(bill => {
+                    const billDate = new Date(bill.date);
+                    return billDate.getMonth() === month.getMonth() && 
+                           billDate.getFullYear() === month.getFullYear();
+                })
+                .reduce((sum, bill) => sum + bill.total, 0);
+            values.push(monthRevenue);
+        }
+    }
+    
+    return { labels, values };
+}
+
+function updateProfitMarginChart(analytics) {
+    const ctx = document.getElementById('profit-margin-chart');
+    if (!ctx) return;
+    
+    if (profitMarginChart) {
+        profitMarginChart.destroy();
+    }
+    
+    const profitPercent = analytics.profitMargin;
+    const costPercent = 100 - profitPercent;
+    
+    profitMarginChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Profit', 'Cost'],
+            datasets: [{
+                data: [profitPercent, costPercent],
+                backgroundColor: ['#4CAF50', '#FF9800'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateTopProducts(bills) {
+    const productSales = {};
+    
+    bills.forEach(bill => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            if (!productSales[item.product_id]) {
+                productSales[item.product_id] = {
+                    name: item.product_name,
+                    quantity: 0,
+                    revenue: 0
+                };
+            }
+            productSales[item.product_id].quantity += item.quantity;
+            productSales[item.product_id].revenue += item.total;
+        });
+    });
+    
+    const topProducts = Object.values(productSales)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+    
+    const container = document.getElementById('top-products-analytics');
+    if (!container) return;
+    
+    if (topProducts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No data available</p>';
+        return;
+    }
+    
+    container.innerHTML = topProducts.map((product, index) => `
+        <div class="top-item">
+            <div class="top-item-rank">${index + 1}</div>
+            <div class="top-item-details">
+                <h4>${product.name}</h4>
+                <p>${product.quantity} units sold</p>
+            </div>
+            <div class="top-item-value">₹${product.revenue.toFixed(2)}</div>
+        </div>
+    `).join('');
+}
+
+function updateTopCustomers(bills, customers) {
+    const customerSales = {};
+    
+    bills.forEach(bill => {
+        if (!customerSales[bill.customer_id]) {
+            customerSales[bill.customer_id] = {
+                name: bill.customer_name,
+                orders: 0,
+                revenue: 0
+            };
+        }
+        customerSales[bill.customer_id].orders += 1;
+        customerSales[bill.customer_id].revenue += bill.total;
+    });
+    
+    const topCustomers = Object.values(customerSales)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+    
+    const container = document.getElementById('top-customers-analytics');
+    if (!container) return;
+    
+    if (topCustomers.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No data available</p>';
+        return;
+    }
+    
+    container.innerHTML = topCustomers.map((customer, index) => `
+        <div class="top-item">
+            <div class="top-item-rank">${index + 1}</div>
+            <div class="top-item-details">
+                <h4>${customer.name}</h4>
+                <p>${customer.orders} orders</p>
+            </div>
+            <div class="top-item-value">₹${customer.revenue.toFixed(2)}</div>
+        </div>
+    `).join('');
+}
+
+function updatePaymentMethodsChart(bills) {
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
+    
+    if (paymentMethodsChart) {
+        paymentMethodsChart.destroy();
+    }
+    
+    const paymentCounts = {};
+    bills.forEach(bill => {
+        const method = bill.payment_mode.toUpperCase();
+        paymentCounts[method] = (paymentCounts[method] || 0) + 1;
+    });
+    
+    const labels = Object.keys(paymentCounts);
+    const values = Object.values(paymentCounts);
+    const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'];
+    
+    paymentMethodsChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateCategorySalesChart(bills) {
+    const ctx = document.getElementById('category-sales-chart');
+    if (!ctx) return;
+    
+    if (categorySalesChart) {
+        categorySalesChart.destroy();
+    }
+    
+    const categorySales = {};
+    
+    bills.forEach(bill => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            // Get category from products
+            const category = 'General'; // Default category
+            categorySales[category] = (categorySales[category] || 0) + item.total;
+        });
+    });
+    
+    const labels = Object.keys(categorySales);
+    const values = Object.values(categorySales);
+    
+    categorySalesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sales',
+                data: values,
+                backgroundColor: '#2196F3',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateAdditionalStats(analytics) {
+    document.getElementById('profit-margin-percent').textContent = analytics.profitMargin.toFixed(1) + '%';
+    document.getElementById('items-sold').textContent = analytics.itemsSold;
+    document.getElementById('active-customers').textContent = analytics.activeCustomers;
+    document.getElementById('growth-rate').textContent = analytics.growthRate.toFixed(1) + '%';
+}
 
 // ============ REPORTS PAGE ============
+let salesTrendChart = null;
+let salesDistributionChart = null;
+let profitProductChart = null;
+let costRevenueChart = null;
+let stockStatusChart = null;
+let stockValueChart = null;
+let topCustomersChart = null;
+let customerActivityChart = null;
+let paymentDistributionChart = null;
+let paymentVolumeChart = null;
+
 function initializeReportsPage() {
-    document.getElementById('report-period').addEventListener('change', loadReports);
-    document.getElementById('export-report-btn').addEventListener('click', exportReport);
+    const reportPeriod = document.getElementById('report-period');
+    if (reportPeriod) {
+        reportPeriod.addEventListener('change', handleReportPeriodChange);
+    }
+    
+    const exportBtn = document.getElementById('export-report-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportReport);
+    }
+    
+    const printBtn = document.getElementById('print-report-btn');
+    if (printBtn) {
+        printBtn.addEventListener('click', printReport);
+    }
+    
+    // Report tabs
+    document.querySelectorAll('.report-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
+            const reportId = this.dataset.report + '-report';
+            const reportSection = document.getElementById(reportId);
+            if (reportSection) {
+                reportSection.classList.add('active');
+            }
+            
+            loadReports();
+        });
+    });
+    
+    // Custom date range
+    const applyCustomRange = document.getElementById('apply-custom-range');
+    if (applyCustomRange) {
+        applyCustomRange.addEventListener('click', loadReports);
+    }
+}
+
+function handleReportPeriodChange() {
+    const periodSelect = document.getElementById('report-period');
+    const customDateRange = document.getElementById('custom-date-range');
+    
+    if (!periodSelect || !customDateRange) return;
+    
+    const period = periodSelect.value;
+    
+    if (period === 'custom') {
+        customDateRange.style.display = 'block';
+        // Set default dates
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        
+        const endDateInput = document.getElementById('report-end-date');
+        const startDateInput = document.getElementById('report-start-date');
+        
+        if (endDateInput) endDateInput.valueAsDate = endDate;
+        if (startDateInput) startDateInput.valueAsDate = startDate;
+    } else {
+        customDateRange.style.display = 'none';
+        loadReports();
+    }
+}
+
+async function loadReports() {
+    const periodSelect = document.getElementById('report-period');
+    const activeTabElement = document.querySelector('.report-tab.active');
+    
+    if (!periodSelect || !activeTabElement) {
+        console.warn('Required elements not found for loading reports');
+        return;
+    }
+    
+    const period = periodSelect.value;
+    const activeTab = activeTabElement.dataset.report;
+    
+    try {
+        const billsResult = await window.electronAPI.bills.getAll();
+        const productsResult = await window.electronAPI.products.getAll();
+        const customersResult = await window.electronAPI.customers.getAll();
+        
+        if (!billsResult.success || !productsResult.success || !customersResult.success) {
+            showToast('Failed to load report data', 'error');
+            return;
+        }
+        
+        const bills = billsResult.data;
+        const products = productsResult.data;
+        const customers = customersResult.data;
+        
+        // Filter bills by period
+        const filteredBills = filterReportBills(bills, period);
+        
+        // Load active report
+        switch(activeTab) {
+            case 'sales':
+                loadSalesReport(filteredBills, bills);
+                break;
+            case 'profit':
+                loadProfitReport(filteredBills, bills);
+                break;
+            case 'inventory':
+                loadInventoryReport(products, filteredBills);
+                break;
+            case 'customer':
+                loadCustomerReport(customers, filteredBills, bills);
+                break;
+            case 'payment':
+                loadPaymentReport(filteredBills, bills);
+                break;
+        }
+    } catch (error) {
+        console.error('Error loading reports:', error);
+        showToast('Failed to load reports', 'error');
+    }
+}
+
+function filterReportBills(bills, period) {
+    if (period === 'custom') {
+        const startDateInput = document.getElementById('report-start-date');
+        const endDateInput = document.getElementById('report-end-date');
+        
+        if (!startDateInput || !endDateInput || !startDateInput.value || !endDateInput.value) {
+            return bills;
+        }
+        
+        const startDate = new Date(startDateInput.value);
+        const endDate = new Date(endDateInput.value);
+        endDate.setHours(23, 59, 59, 999);
+        
+        return bills.filter(bill => {
+            const billDate = new Date(bill.date);
+            return billDate >= startDate && billDate <= endDate;
+        });
+    }
+    
+    const now = new Date();
+    let startDate;
+    
+    switch(period) {
+        case 'today':
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+        case 'week':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+        case 'year':
+            startDate = new Date(now.getFullYear(), 0, 1);
+            break;
+        default:
+            return bills;
+    }
+    
+    return bills.filter(bill => new Date(bill.date) >= startDate);
+}
+
+function loadSalesReport(filteredBills, allBills) {
+    // Calculate metrics
+    const totalSales = filteredBills.reduce((sum, bill) => sum + bill.total, 0);
+    const totalOrders = filteredBills.length;
+    const avgOrder = totalOrders > 0 ? totalSales / totalOrders : 0;
+    const totalItems = filteredBills.reduce((sum, bill) => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        return sum + items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+    }, 0);
+    
+    // Previous period comparison
+    const prevBills = getPreviousPeriodBills(allBills);
+    const prevSales = prevBills.reduce((sum, bill) => sum + bill.total, 0);
+    const prevOrders = prevBills.length;
+    const prevAvg = prevOrders > 0 ? prevSales / prevOrders : 0;
+    const prevItems = prevBills.reduce((sum, bill) => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        return sum + items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+    }, 0);
+    
+    // Update summary cards
+    document.getElementById('report-total-sales').textContent = `₹${totalSales.toFixed(2)}`;
+    document.getElementById('report-total-orders').textContent = totalOrders;
+    document.getElementById('report-avg-order').textContent = `₹${avgOrder.toFixed(2)}`;
+    document.getElementById('report-total-items').textContent = totalItems;
+    
+    updateReportChange('report-sales-change', totalSales, prevSales);
+    updateReportChange('report-orders-change', totalOrders, prevOrders);
+    updateReportChange('report-avg-change', avgOrder, prevAvg);
+    updateReportChange('report-items-change', totalItems, prevItems);
+    
+    // Sales breakdown by date
+    const breakdownData = {};
+    filteredBills.forEach(bill => {
+        const date = new Date(bill.date).toISOString().split('T')[0];
+        if (!breakdownData[date]) {
+            breakdownData[date] = { bills: 0, items: 0, revenue: 0 };
+        }
+        breakdownData[date].bills += 1;
+        breakdownData[date].revenue += bill.total;
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        breakdownData[date].items += items.reduce((sum, item) => sum + item.quantity, 0);
+    });
+    
+    const tbody = document.getElementById('sales-breakdown-body');
+    if (tbody) {
+        tbody.innerHTML = Object.entries(breakdownData)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .map(([date, data]) => `
+                <tr>
+                    <td>${new Date(date).toLocaleDateString('en-IN')}</td>
+                    <td>${data.bills}</td>
+                    <td>${data.items}</td>
+                    <td>₹${data.revenue.toFixed(2)}</td>
+                    <td>₹${(data.revenue / data.bills).toFixed(2)}</td>
+                </tr>
+            `).join('');
+    }
+    
+    const totalBillsEl = document.getElementById('sales-total-bills');
+    const totalItemsEl = document.getElementById('sales-total-items');
+    const totalRevenueEl = document.getElementById('sales-total-revenue');
+    const avgOrderEl = document.getElementById('sales-avg-order');
+    
+    if (totalBillsEl) totalBillsEl.textContent = totalOrders;
+    if (totalItemsEl) totalItemsEl.textContent = totalItems;
+    if (totalRevenueEl) totalRevenueEl.textContent = `₹${totalSales.toFixed(2)}`;
+    if (avgOrderEl) avgOrderEl.textContent = `₹${avgOrder.toFixed(2)}`;
+    
+    // Top products
+    const productSales = {};
+    filteredBills.forEach(bill => {
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            if (!productSales[item.product_id]) {
+                productSales[item.product_id] = {
+                    name: item.product_name,
+                    quantity: 0,
+                    revenue: 0
+                };
+            }
+            productSales[item.product_id].quantity += item.quantity;
+            productSales[item.product_id].revenue += item.total;
+        });
+    });
+    
+    const topProducts = Object.values(productSales)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 10);
+    
+    const topProductsBody = document.getElementById('top-products-report-body');
+    if (topProductsBody) {
+        topProductsBody.innerHTML = topProducts.map((product, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${product.name}</td>
+                <td>${product.quantity}</td>
+                <td>₹${product.revenue.toFixed(2)}</td>
+                <td>${totalSales > 0 ? ((product.revenue / totalSales) * 100).toFixed(1) : 0}%</td>
+            </tr>
+        `).join('');
+    }    
+    // Create Sales Charts
+    createSalesTrendChart(breakdownData);
+    createSalesDistributionChart(topProducts.slice(0, 5), totalSales);
+}
+
+function createSalesTrendChart(breakdownData) {
+    const ctx = document.getElementById('sales-trend-chart');
+    if (!ctx) return;
+    
+    if (salesTrendChart) {
+        salesTrendChart.destroy();
+    }
+    
+    const sortedData = Object.entries(breakdownData).sort((a, b) => a[0].localeCompare(b[0]));
+    const labels = sortedData.map(([date]) => new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+    const values = sortedData.map(([, data]) => data.revenue);
+    
+    salesTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue',
+                data: values,
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointBackgroundColor: '#2196F3',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: ₹' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createSalesDistributionChart(topProducts, totalSales) {
+    const ctx = document.getElementById('sales-distribution-chart');
+    if (!ctx) return;
+    
+    if (salesDistributionChart) {
+        salesDistributionChart.destroy();
+    }
+    
+    const labels = topProducts.map(p => p.name);
+    const values = topProducts.map(p => p.revenue);
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+    
+    salesDistributionChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const percentage = ((value / totalSales) * 100).toFixed(1);
+                            return label + ': ₹' + value.toFixed(2) + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadProfitReport(filteredBills, allBills) {
+    let totalProfit = 0;
+    let totalCost = 0;
+    let totalRevenue = 0;
+    
+    const productProfit = {};
+    
+    filteredBills.forEach(bill => {
+        totalRevenue += bill.total;
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            const cost = (item.cost_price || 0) * item.quantity;
+            const revenue = item.price * item.quantity;
+            const profit = revenue - cost;
+            
+            totalCost += cost;
+            totalProfit += profit;
+            
+            if (!productProfit[item.product_id]) {
+                productProfit[item.product_id] = {
+                    name: item.product_name,
+                    quantity: 0,
+                    cost: 0,
+                    revenue: 0,
+                    profit: 0
+                };
+            }
+            productProfit[item.product_id].quantity += item.quantity;
+            productProfit[item.product_id].cost += cost;
+            productProfit[item.product_id].revenue += revenue;
+            productProfit[item.product_id].profit += profit;
+        });
+    });
+    
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
+    
+    // Previous period
+    const prevBills = getPreviousPeriodBills(allBills);
+    let prevProfit = 0;
+    let prevRevenue = 0;
+    prevBills.forEach(bill => {
+        prevRevenue += bill.total;
+        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : (bill.items || []);
+        items.forEach(item => {
+            const cost = (item.cost_price || 0) * item.quantity;
+            const revenue = item.price * item.quantity;
+            prevProfit += (revenue - cost);
+        });
+    });
+    const prevMargin = prevRevenue > 0 ? (prevProfit / prevRevenue * 100) : 0;
+    
+    document.getElementById('report-total-profit').textContent = `₹${totalProfit.toFixed(2)}`;
+    document.getElementById('report-profit-margin').textContent = `${profitMargin.toFixed(1)}%`;
+    document.getElementById('report-total-cost').textContent = `₹${totalCost.toFixed(2)}`;
+    document.getElementById('report-profit-revenue').textContent = `₹${totalRevenue.toFixed(2)}`;
+    
+    updateReportChange('report-profit-change', totalProfit, prevProfit);
+    updateReportChange('report-margin-change', profitMargin, prevMargin);
+    
+    // Profit by product table
+    const tbody = document.getElementById('profit-by-product-body');
+    const productProfitArray = Object.values(productProfit).sort((a, b) => b.profit - a.profit);
+    tbody.innerHTML = productProfitArray
+        .map(product => {
+            const margin = product.revenue > 0 ? (product.profit / product.revenue * 100) : 0;
+            return `
+                <tr>
+                    <td>${product.name}</td>
+                    <td>${product.quantity}</td>
+                    <td>₹${product.cost.toFixed(2)}</td>
+                    <td>₹${product.revenue.toFixed(2)}</td>
+                    <td style="color: ${product.profit >= 0 ? '#4CAF50' : '#F44336'}">₹${product.profit.toFixed(2)}</td>
+                    <td>${margin.toFixed(1)}%</td>
+                </tr>
+            `;
+        }).join('');
+    
+    // Create Profit Charts
+    createProfitProductChart(productProfitArray.slice(0, 10));
+    createCostRevenueChart(totalCost, totalProfit);
+}
+
+function createProfitProductChart(products) {
+    const ctx = document.getElementById('profit-product-chart');
+    if (!ctx) return;
+    
+    if (profitProductChart) {
+        profitProductChart.destroy();
+    }
+    
+    const labels = products.map(p => p.name);
+    const profits = products.map(p => p.profit);
+    
+    profitProductChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Profit',
+                data: profits,
+                backgroundColor: profits.map(p => p >= 0 ? '#4CAF50' : '#F44336'),
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Profit: ₹' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createCostRevenueChart(totalCost, totalProfit) {
+    const ctx = document.getElementById('cost-revenue-chart');
+    if (!ctx) return;
+    
+    if (costRevenueChart) {
+        costRevenueChart.destroy();
+    }
+    
+    costRevenueChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Cost', 'Profit'],
+            datasets: [{
+                data: [totalCost, totalProfit],
+                backgroundColor: ['#FF9800', '#4CAF50'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ₹' + context.parsed.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadInventoryReport(products, filteredBills) {
+    const totalProducts = products.length;
+    const lowStock = products.filter(p => p.stock > 0 && p.stock <= 10).length;
+    const outOfStock = products.filter(p => p.stock === 0).length;
+    const stockValue = products.reduce((sum, p) => sum + (p.cost_price * p.stock), 0);
+    
+    document.getElementById('report-total-products').textContent = totalProducts;
+    document.getElementById('report-low-stock').textContent = lowStock;
+    document.getElementById('report-out-stock').textContent = outOfStock;
+    document.getElementById('report-stock-value').textContent = `₹${stockValue.toFixed(2)}`;
+    
+    const tbody = document.getElementById('inventory-status-body');
+    tbody.innerHTML = products.map(product => {
+        let status, statusClass;
+        if (product.stock === 0) {
+            status = 'Out of Stock';
+            statusClass = 'status-danger';
+        } else if (product.stock <= 10) {
+            status = 'Low Stock';
+            statusClass = 'status-warning';
+        } else {
+            status = 'In Stock';
+            statusClass = 'status-success';
+        }
+        
+        return `
+            <tr>
+                <td>${product.name}</td>
+                <td>${product.category || 'Others'}</td>
+                <td>${product.stock}</td>
+                <td>₹${(product.cost_price || 0).toFixed(2)}</td>
+                <td>₹${product.price.toFixed(2)}</td>
+                <td>₹${((product.cost_price || 0) * product.stock).toFixed(2)}</td>
+                <td><span class="status-badge ${statusClass}">${status}</span></td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Create Inventory Charts
+    createStockStatusChart(totalProducts - outOfStock - lowStock, lowStock, outOfStock);
+    createStockValueChart(products);
+}
+
+function createStockStatusChart(inStock, lowStock, outOfStock) {
+    const ctx = document.getElementById('stock-status-chart');
+    if (!ctx) return;
+    
+    if (stockStatusChart) {
+        stockStatusChart.destroy();
+    }
+    
+    stockStatusChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['In Stock', 'Low Stock', 'Out of Stock'],
+            datasets: [{
+                data: [inStock, lowStock, outOfStock],
+                backgroundColor: ['#4CAF50', '#FF9800', '#F44336'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function createStockValueChart(products) {
+    const ctx = document.getElementById('stock-value-chart');
+    if (!ctx) return;
+    
+    if (stockValueChart) {
+        stockValueChart.destroy();
+    }
+    
+    // Group by category
+    const categoryData = {};
+    products.forEach(product => {
+        const category = product.category || 'Others';
+        if (!categoryData[category]) {
+            categoryData[category] = 0;
+        }
+        categoryData[category] += (product.cost_price || 0) * product.stock;
+    });
+    
+    const labels = Object.keys(categoryData);
+    const values = Object.values(categoryData);
+    
+    stockValueChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Stock Value',
+                data: values,
+                backgroundColor: '#2196F3',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Value: ₹' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadCustomerReport(customers, filteredBills, allBills) {
+    const activeCustomers = new Set(filteredBills.map(b => b.customer_id)).size;
+    
+    // Calculate new customers in period
+    const period = document.getElementById('report-period').value;
+    let periodStart;
+    const now = new Date();
+    
+    switch(period) {
+        case 'today':
+            periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+        case 'week':
+            periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+        case 'year':
+            periodStart = new Date(now.getFullYear(), 0, 1);
+            break;
+        case 'custom':
+            periodStart = new Date(document.getElementById('report-start-date').value);
+            break;
+        default:
+            periodStart = new Date(0);
+    }
+    
+    const newCustomers = customers.filter(c => new Date(c.created_at) >= periodStart).length;
+    
+    const customerData = {};
+    filteredBills.forEach(bill => {
+        if (!customerData[bill.customer_id]) {
+            customerData[bill.customer_id] = {
+                name: bill.customer_name,
+                phone: bill.customer_phone,
+                orders: 0,
+                totalSpent: 0,
+                loyaltyPoints: 0
+            };
+        }
+        customerData[bill.customer_id].orders += 1;
+        customerData[bill.customer_id].totalSpent += bill.total;
+    });
+    
+    // Add loyalty points from customers array
+    customers.forEach(customer => {
+        if (customerData[customer.id]) {
+            customerData[customer.id].loyaltyPoints = customer.loyalty_points || 0;
+        }
+    });
+    
+    const totalSpent = Object.values(customerData).reduce((sum, c) => sum + c.totalSpent, 0);
+    const avgSpending = activeCustomers > 0 ? totalSpent / activeCustomers : 0;
+    
+    document.getElementById('report-total-customers').textContent = customers.length;
+    document.getElementById('report-active-customers').textContent = activeCustomers;
+    document.getElementById('report-new-customers').textContent = newCustomers;
+    document.getElementById('report-avg-spending').textContent = `₹${avgSpending.toFixed(2)}`;
+    
+    const tbody = document.getElementById('customer-summary-body');
+    const customerArray = Object.values(customerData).sort((a, b) => b.totalSpent - a.totalSpent);
+    tbody.innerHTML = customerArray
+        .map(customer => `
+            <tr>
+                <td>${customer.name}</td>
+                <td>${customer.phone}</td>
+                <td>${customer.orders}</td>
+                <td>₹${customer.totalSpent.toFixed(2)}</td>
+                <td>₹${(customer.totalSpent / customer.orders).toFixed(2)}</td>
+                <td>${customer.loyaltyPoints}</td>
+            </tr>
+        `).join('');
+    
+    // Create Customer Charts
+    createTopCustomersChart(customerArray.slice(0, 10));
+    createCustomerActivityChart(activeCustomers, customers.length - activeCustomers);
+}
+
+function createTopCustomersChart(customers) {
+    const ctx = document.getElementById('top-customers-chart');
+    if (!ctx) return;
+    
+    if (topCustomersChart) {
+        topCustomersChart.destroy();
+    }
+    
+    const labels = customers.map(c => c.name);
+    const values = customers.map(c => c.totalSpent);
+    
+    topCustomersChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Spent',
+                data: values,
+                backgroundColor: '#9C27B0',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Spent: ₹' + context.parsed.x.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createCustomerActivityChart(active, inactive) {
+    const ctx = document.getElementById('customer-activity-chart');
+    if (!ctx) return;
+    
+    if (customerActivityChart) {
+        customerActivityChart.destroy();
+    }
+    
+    customerActivityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Active', 'Inactive'],
+            datasets: [{
+                data: [active, inactive],
+                backgroundColor: ['#4CAF50', '#9E9E9E'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function loadPaymentReport(filteredBills, allBills) {
+    const paymentData = {
+        cash: { count: 0, total: 0 },
+        upi: { count: 0, total: 0 },
+        card: { count: 0, total: 0 },
+        cheque: { count: 0, total: 0 }
+    };
+    
+    filteredBills.forEach(bill => {
+        const method = bill.payment_mode.toLowerCase();
+        if (paymentData[method]) {
+            paymentData[method].count += 1;
+            paymentData[method].total += bill.total;
+        }
+    });
+    
+    const grandTotal = Object.values(paymentData).reduce((sum, p) => sum + p.total, 0);
+    
+    document.getElementById('report-cash-total').textContent = `₹${paymentData.cash.total.toFixed(2)}`;
+    document.getElementById('report-cash-count').textContent = `${paymentData.cash.count} transactions`;
+    document.getElementById('report-upi-total').textContent = `₹${paymentData.upi.total.toFixed(2)}`;
+    document.getElementById('report-upi-count').textContent = `${paymentData.upi.count} transactions`;
+    document.getElementById('report-card-total').textContent = `₹${paymentData.card.total.toFixed(2)}`;
+    document.getElementById('report-card-count').textContent = `${paymentData.card.count} transactions`;
+    document.getElementById('report-cheque-total').textContent = `₹${paymentData.cheque.total.toFixed(2)}`;
+    document.getElementById('report-cheque-count').textContent = `${paymentData.cheque.count} transactions`;
+    
+    const tbody = document.getElementById('payment-breakdown-body');
+    const paymentArray = Object.entries(paymentData)
+        .filter(([_, data]) => data.count > 0)
+        .sort((a, b) => b[1].total - a[1].total);
+    
+    tbody.innerHTML = paymentArray
+        .map(([method, data]) => {
+            const percentage = grandTotal > 0 ? (data.total / grandTotal * 100) : 0;
+            const avgTransaction = data.count > 0 ? data.total / data.count : 0;
+            return `
+                <tr>
+                    <td style="text-transform: uppercase;">${method}</td>
+                    <td>${data.count}</td>
+                    <td>₹${data.total.toFixed(2)}</td>
+                    <td>${percentage.toFixed(1)}%</td>
+                    <td>₹${avgTransaction.toFixed(2)}</td>
+                </tr>
+            `;
+        }).join('');
+    
+    // Create Payment Charts
+    createPaymentDistributionChart(paymentData, grandTotal);
+    createPaymentVolumeChart(paymentData);
+}
+
+function createPaymentDistributionChart(paymentData, grandTotal) {
+    const ctx = document.getElementById('payment-distribution-chart');
+    if (!ctx) return;
+    
+    if (paymentDistributionChart) {
+        paymentDistributionChart.destroy();
+    }
+    
+    const labels = [];
+    const values = [];
+    const colors = {
+        cash: '#4CAF50',
+        upi: '#2196F3',
+        card: '#FF9800',
+        cheque: '#9C27B0'
+    };
+    const bgColors = [];
+    
+    Object.entries(paymentData).forEach(([method, data]) => {
+        if (data.count > 0) {
+            labels.push(method.toUpperCase());
+            values.push(data.total);
+            bgColors.push(colors[method] || '#666');
+        }
+    });
+    
+    paymentDistributionChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: bgColors,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed;
+                            const percentage = ((value / grandTotal) * 100).toFixed(1);
+                            return context.label + ': ₹' + value.toFixed(2) + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createPaymentVolumeChart(paymentData) {
+    const ctx = document.getElementById('payment-volume-chart');
+    if (!ctx) return;
+    
+    if (paymentVolumeChart) {
+        paymentVolumeChart.destroy();
+    }
+    
+    const labels = [];
+    const values = [];
+    const colors = {
+        cash: '#4CAF50',
+        upi: '#2196F3',
+        card: '#FF9800',
+        cheque: '#9C27B0'
+    };
+    const bgColors = [];
+    
+    Object.entries(paymentData).forEach(([method, data]) => {
+        if (data.count > 0) {
+            labels.push(method.toUpperCase());
+            values.push(data.count);
+            bgColors.push(colors[method] || '#666');
+        }
+    });
+    
+    paymentVolumeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Transactions',
+                data: values,
+                backgroundColor: bgColors,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateReportChange(elementId, current, previous) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    if (previous === 0) {
+        element.textContent = '+0%';
+        element.className = 'summary-change positive';
+        return;
+    }
+    
+    const change = ((current - previous) / previous * 100);
+    const isPositive = change >= 0;
+    element.className = 'summary-change ' + (isPositive ? 'positive' : 'negative');
+    element.textContent = `${isPositive ? '+' : ''}${change.toFixed(1)}%`;
+}
+
+async function exportReport() {
+    const activeTab = document.querySelector('.report-tab.active').dataset.report;
+    const period = document.getElementById('report-period').value;
+    
+    showToast('Exporting report...', 'info');
+    
+    try {
+        const reportData = {
+            type: activeTab,
+            period: period,
+            date: new Date().toISOString()
+        };
+        
+        await window.electronAPI.export('report', reportData);
+        showToast('Report exported successfully', 'success');
+    } catch (error) {
+        showToast('Failed to export report', 'error');
+    }
+}
+
+function printReport() {
+    window.print();
+    showToast('Printing report...', 'info');
 }
 
 async function loadReports() {
@@ -1580,16 +3411,6 @@ function renderReport(data) {
             </div>
         </div>
     `;
-}
-
-async function exportReport() {
-    const period = document.getElementById('report-period').value;
-    const result = await window.electronAPI.reports.getSales({ period });
-    
-    if (result.success) {
-        await window.electronAPI.export('report', result.data);
-        showToast('Report exported successfully', 'success');
-    }
 }
 
 // ============ SETTINGS ============

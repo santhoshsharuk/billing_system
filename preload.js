@@ -47,6 +47,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     open: (pdfPath) => ipcRenderer.invoke('invoice:open', pdfPath),
   },
 
+  // WhatsApp
+  whatsapp: {
+    sendBill: (data) => ipcRenderer.invoke('whatsapp:sendBill', data),
+  },
+
   // Export & Backup
   export: (type, data) => ipcRenderer.invoke('export:data', { type, data }),
   backup: () => ipcRenderer.invoke('database:backup'),

@@ -1,5 +1,5 @@
 // main.js - Electron Main Process
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const DatabaseManager = require('./src/database/dbManager');
@@ -342,6 +342,81 @@ ipcMain.handle('database:factoryReset', async () => {
     return { success: true, message: 'Factory reset completed successfully' };
   } catch (error) {
     console.error('Factory reset error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Send bill via WhatsApp
+ipcMain.handle('whatsapp:sendBill', async (event, { billId, phoneNumber }) => {
+  try {
+    const bill = db.getBillById(billId);
+    if (!bill) {
+      throw new Error('Bill not found');
+    }
+    
+    // Get business settings
+    const settingsStr = await mainWindow.webContents.executeJavaScript('localStorage.getItem("businessSettings")');
+    const settings = settingsStr ? JSON.parse(settingsStr) : {};
+    const businessName = settings.businessName || 'My Shop';
+    const businessPhone = settings.businessPhone || '';
+    const businessAddress = settings.businessAddress || '';
+    
+    // Format bill message (without emojis for better compatibility)
+    let message = `*${businessName}*\n`;
+    if (businessAddress) message += `Address: ${businessAddress}\n`;
+    if (businessPhone) message += `Phone: ${businessPhone}\n`;
+    message += `\n================================\n`;
+    message += `*BILL #${bill.id}*\n`;
+    message += `================================\n\n`;
+    
+    // Date and customer info
+    const date = new Date(bill.date);
+    message += `Date: ${date.toLocaleDateString('en-IN')} ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n`;
+    message += `Customer: ${bill.customer_name}\n`;
+    message += `Phone: ${bill.customer_phone}\n`;
+    message += `Payment: ${bill.payment_mode.toUpperCase()}\n\n`;
+    
+    // Items
+    message += `*ITEMS:*\n`;
+    message += `--------------------------------\n`;
+    bill.items.forEach((item, index) => {
+      message += `${index + 1}. ${item.product_name}\n`;
+      message += `   ${item.quantity} x Rs.${item.price.toFixed(2)} = Rs.${item.total.toFixed(2)}\n`;
+    });
+    
+    // Summary
+    message += `\n================================\n`;
+    message += `*SUMMARY:*\n`;
+    message += `================================\n`;
+    message += `Subtotal: Rs.${bill.subtotal.toFixed(2)}\n`;
+    if (bill.tax > 0) {
+      message += `Tax: Rs.${bill.tax.toFixed(2)}\n`;
+    }
+    if (bill.discount > 0) {
+      message += `Discount: -Rs.${bill.discount.toFixed(2)}\n`;
+    }
+    message += `\n*TOTAL: Rs.${bill.total.toFixed(2)}*\n`;
+    message += `================================\n\n`;
+    message += `Thank you for your business!\n`;
+    message += `Visit us again!`;
+    
+    // Clean phone number (remove spaces, dashes, etc.)
+    let cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    
+    // If phone doesn't have country code, assume India (+91)
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
+    
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    
+    // Open WhatsApp in browser
+    await shell.openExternal(whatsappUrl);
+    
+    return { success: true, message: 'Opening WhatsApp...' };
+  } catch (error) {
+    console.error('WhatsApp send error:', error);
     return { success: false, error: error.message };
   }
 });
