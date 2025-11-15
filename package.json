@@ -8,7 +8,7 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
-    "build-win": "electron-builder --win",
+    "build-win": "electron-builder --win --publish=never",
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux"
   },
@@ -31,21 +31,18 @@
     "pdfkit": "^0.14.0",
     "sql.js": "^1.13.0"
   },
+
   "build": {
     "appId": "com.billing.system",
     "productName": "Billing System",
-    "publish": {
-  "provider": "github",
-  "owner": "santhoshsharuk",
-  "repo": "billing_system"
-  }
-    },
+
+    "publish": null,
+
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
-    "win": {
-    "icon": "build/icon.ico"
-    },
+
     "files": [
       "main.js",
       "preload.js",
@@ -53,26 +50,28 @@
       "db/**/*",
       "node_modules/**/*"
     ],
+
     "extraResources": [
       {
         "from": "node_modules/sql.js/dist",
         "to": "sqljs",
-        "filter": [
-          "sql-wasm.wasm"
-        ]
+        "filter": ["sql-wasm.wasm"]
       }
     ],
+
     "win": {
       "target": "nsis",
-      "icon": "src/assets/icon.ico"
+      "icon": "build/icon.ico"
     },
+
     "mac": {
       "target": "dmg",
-      "icon": "src/assets/icon.icns"
+      "icon": "build/icon.icns"
     },
+
     "linux": {
       "target": "AppImage",
-      "icon": "src/assets/icon.png"
+      "icon": "build/icon.png"
     }
   }
 }
