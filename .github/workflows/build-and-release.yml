@@ -92,11 +92,19 @@ jobs:
           asset_content_type: application/octet-stream
         continue-on-error: true
 
-      - name: Send Telegram Notification
+      - name: Find EXE file
+        id: find_exe
         run: |
-          MESSAGE="🎉 *New Release Published!*%0A%0A🔖 Version: *${{ github.ref_name }}*%0A📦 Billing System Update%0ADownload here:%0Ahttps://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          EXE_FILE=$(find artifacts/windows-build -name "*.exe" -type f | head -n 1)
+          echo "exe_path=$EXE_FILE" >> $GITHUB_OUTPUT
+          echo "Found EXE: $EXE_FILE"
+
+      - name: Send EXE to Telegram
+        run: |
+          CAPTION="🎉 *Billing System ${{ github.ref_name }}*%0A%0A✅ Windows Installer%0A📦 Ready to install%0A%0A🔗 Release: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
           
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="$MESSAGE" \
-          -d parse_mode="Markdown"
+          curl -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+               -F "document=@${{ steps.find_exe.outputs.exe_path }}" \
+               -F "caption=$CAPTION" \
+               -F "parse_mode=Markdown" \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument"
