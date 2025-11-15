@@ -12,7 +12,29 @@ class DatabaseManager {
     }
 
     async initialize() {
-        const SQL = await initSqlJs();
+        // Determine WASM file location (works in both dev and production)
+        let wasmBinary;
+        const { app } = require('electron');
+        
+        // In production, WASM is in resources/sqljs folder
+        const resourcesPath = process.resourcesPath || path.join(app.getAppPath(), '..');
+        const wasmPath = path.join(resourcesPath, 'sqljs', 'sql-wasm.wasm');
+        
+        // Check if production WASM exists, otherwise use dev path
+        if (fs.existsSync(wasmPath)) {
+            wasmBinary = fs.readFileSync(wasmPath);
+        }
+        
+        const SQL = await initSqlJs({
+            locateFile: file => {
+                if (wasmBinary) {
+                    // Use the loaded binary
+                    return wasmPath;
+                }
+                // Development mode - use node_modules
+                return path.join(__dirname, '../../node_modules/sql.js/dist', file);
+            }
+        });
         
         // Load existing database or create new one
         if (fs.existsSync(this.dbPath)) {
@@ -52,15 +74,19 @@ class DatabaseManager {
                 return { lastInsertRowid: this.getLastInsertId() };
             },
             get: (...params) => {
-                const stmt = this.prepare(sql);
-                stmt.bind(params);
+                const stmt = this.db.prepare(sql);
+                if (params.length > 0) {
+                    stmt.bind(params);
+                }
                 const result = stmt.step() ? stmt.getAsObject() : null;
                 stmt.free();
                 return result;
             },
             all: (...params) => {
-                const stmt = this.prepare(sql);
-                stmt.bind(params);
+                const stmt = this.db.prepare(sql);
+                if (params.length > 0) {
+                    stmt.bind(params);
+                }
                 const results = [];
                 while (stmt.step()) {
                     results.push(stmt.getAsObject());
@@ -72,7 +98,7 @@ class DatabaseManager {
     }
 
     getLastInsertId() {
-        const stmt = this.prepare('SELECT last_insert_rowid() as id');
+        const stmt = this.db.prepare('SELECT last_insert_rowid() as id');
         stmt.step();
         const result = stmt.getAsObject();
         stmt.free();

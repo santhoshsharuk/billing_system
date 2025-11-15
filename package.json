@@ -24,6 +24,7 @@
     "chart.js": "^4.5.1",
     "electron": "^39.2.0",
     "electron-builder": "^24.13.3",
+    "electron-icon-builder": "^2.0.1",
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
@@ -33,9 +34,11 @@
   "build": {
     "appId": "com.billing.system",
     "productName": "Billing System",
-    "publish": null,
     "directories": {
       "output": "dist"
+    },
+    "win": {
+    "icon": "build/icon.ico"
     },
     "files": [
       "main.js",
@@ -43,6 +46,15 @@
       "src/**/*",
       "db/**/*",
       "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist",
+        "to": "sqljs",
+        "filter": [
+          "sql-wasm.wasm"
+        ]
+      }
     ],
     "win": {
       "target": "nsis",

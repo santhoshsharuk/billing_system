@@ -23,16 +23,17 @@ function createWindow() {
     height: 900,
     minWidth: 1200,
     minHeight: 700,
+    icon: __dirname + '/src/assets/icon.png',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, 'src', 'assets', 'icon.png'),
     show: false, // Don't show until ready
   });
 
-  mainWindow.loadFile('src/index.html');
+  mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
