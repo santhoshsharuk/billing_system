@@ -34,7 +34,12 @@
   "build": {
     "appId": "com.billing.system",
     "productName": "Billing System",
-    "publish": null,
+    "publish": {
+  "provider": "github",
+  "owner": "santhoshsharuk",
+  "repo": "billing_system"
+  }
+    },
     "directories": {
       "output": "dist"
     },
